@@ -1,21 +1,45 @@
 <?php
 session_start();
 
+// Conectar ao banco de dados
+$host = 'localhost'; // ou seu host de banco de dados
+$user = 'root'; // seu usuário do banco de dados
+$password = ''; // sua senha do banco de dados
+$dbname = 'Zero1Piscinas'; // nome do seu banco de dados
+
+$conn = new mysqli($host, $user, $password, $dbname);
+
+// Verifica se a conexão foi bem-sucedida
+if ($conn->connect_error) {
+    die("Conexão falhou: " . $conn->connect_error);
+}
+
 // Verifica se o usuário está logado e é do tipo 'cliente'
 if (!isset($_SESSION['ClassUsuarios']) || $_SESSION['tipo_usuario'] != 'cliente') {
     header('Location: LoginCadastro.php');
     exit;
 }
 
-// Recuperando os dados da sessão
-$pedidoId = isset($_SESSION['pedidoId']) ? $_SESSION['pedidoId'] : 'Desconhecido';
-$pedidoStatus = isset($_SESSION['pedidoStatus']) ? $_SESSION['pedidoStatus'] : 'Desconhecido';
-$respostaProfissional = isset($_SESSION['respostaProfissional']) ? $_SESSION['respostaProfissional'] : '';
-$mensagemAcompanhamento = isset($_SESSION['mensagemAcompanhamento']) ? $_SESSION['mensagemAcompanhamento'] : '';
+// Recuperando o ID do pedido da sessão
+$pedidoId = isset($_SESSION['pedidoId']) ? $_SESSION['pedidoId'] : null;
 
-// Limpar mensagem da sessão após exibir
-unset($_SESSION['mensagemAcompanhamento']);
+if ($pedidoId) {
+    // Recupera os dados do pedido a partir da tabela "piscinas"
+    $sql = "SELECT status, resposta FROM piscinas WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('i', $pedidoId);
+    $stmt->execute();
+    $stmt->store_result();
+    $stmt->bind_result($pedidoStatus, $respostaProfissional);
+    $stmt->fetch();
+    $stmt->close();
+} else {
+    $pedidoStatus = 'Pendente';
+    $respostaProfissional = 'Sem resposta do profissional';
+}
 
+// Fechar a conexão com o banco de dados
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -161,12 +185,13 @@ unset($_SESSION['mensagemAcompanhamento']);
     <div class="content">
         <div class="header">
             <h1>Acompanhar Pedido</h1>
-            
             <a href="logout.php" class="btn">Sair</a>
         </div>
-<div>
-            <p>Aqui você pode acompanhar o status do seu pedido, conversar com profissional e realizar o pagamento.</p>
-            </div>
+
+        <div>
+            <p>Aqui você pode acompanhar o status do seu pedido, conversar com o profissional e realizar o pagamento.</p>
+        </div>
+
         <!-- Seção de Acompanhamento de Pedido -->
         <div class="card">
             <h2>Status do Pedido #<?php echo $pedidoId; ?></h2>
@@ -178,12 +203,6 @@ unset($_SESSION['mensagemAcompanhamento']);
             <?php endif; ?>
 
             <br><br>
-
-            <?php if ($mensagemAcompanhamento): ?>
-                <div class="mensagem">
-                    <p><?php echo htmlspecialchars($mensagemAcompanhamento); ?></p>
-                </div>
-            <?php endif; ?>
 
             <!-- Botão de Pagamento -->
             <form action="processarPagamento.php" method="post">
